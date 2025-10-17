@@ -5,34 +5,34 @@ from datetime import datetime, timedelta
 import json
 
 @dataclass
-class AppointmentData:
-    appointment_id: str
-    patient_id: str
-    patient_name: str
-    dentist_id: str
-    office_id: str
-    appointment_date: datetime
-    service_name: str
-    duration_minutes: int
-    amount: float
-    payment_method: str
-    status: str
-    rating: Optional[float] = None
+class citaData:
+    cita_id: str
+    paciente_id: str
+    nombre_paciente: str
+    dentista_id: str
+    consultorio_id: str
+    cita_fecha: datetime
+    nombre_servicio: str
+    duracion_min: int
+    monto: float
+    metodo_pago: str
+    estado: str
+    calificacion: Optional[float] = None
 
 
 class LocalDataProvider:
-    PATIENT_FIRST_NAMES = [
+    nombres = [
         "Roberto", "Patricia", "Miguel", "Elena", "Fernando", 
         "Isabel", "Ricardo", "Monica", "Alejandro", "Claudia",
         "Daniel", "Beatriz", "Jorge", "Silvia", "Raul"
     ]
     
-    PATIENT_LAST_NAMES = [
+    apellidos = [
         "Hernandez", "Martinez", "Lopez", "Gonzalez", "Perez",
         "Sanchez", "Ramirez", "Torres", "Flores", "Rivera"
     ]
     
-    SERVICE_CATALOG = [
+    servicios = [
         ("Limpieza dental", 45, 800),
         ("Ortodoncia", 60, 2500),
         ("Extraccion simple", 30, 1200),
@@ -45,104 +45,104 @@ class LocalDataProvider:
         ("Puente dental", 120, 12000),
     ]
     
-    OFFICE_IDS = ["office_alpha", "office_beta", "office_gamma"]
-    PAYMENT_METHODS = ["efectivo", "stripe", "transferencia"]
-    STATUS_OPTIONS = ["completada", "cancelada", "pendiente"]
+    consultorio_id = ["office_alpha", "office_beta", "office_gamma"]
+    metodos_pago = ["efectivo", "stripe", "transferencia"]
+    estados = ["completada", "cancelada", "pendiente"]
     
     @staticmethod
-    def generate_full_name() -> str:
-        first_name = random.choice(LocalDataProvider.PATIENT_FIRST_NAMES)
-        last_name = random.choice(LocalDataProvider.PATIENT_LAST_NAMES)
-        return f"{first_name} {last_name}"
+    def generar_nombre_completo() -> str:
+        nombre = random.choice(LocalDataProvider.nombres)
+        apellido = random.choice(LocalDataProvider.apellidos)
+        return f"{nombre} {apellido}"
     
     @staticmethod
-    def generate_appointments(
-        dentist_id: str, 
-        total_appointments: int = 100,
+    def generar_citas(
+        dentista_id: str, 
+        total_citas: int = 100,
         months_back: int = 6
-    ) -> List[AppointmentData]:
-        appointments = []
-        current_date = datetime.now()
-        registered_patients = {}
+    ) -> List[citaData]:
+        citas = []
+        fecha_actual = datetime.now()
+        pacientes_r = {}
         
-        for appointment_number in range(total_appointments):
+        for numero_cita in range(total_citas):
             days_ago = random.randint(0, months_back * 30)
-            hour = random.randint(8, 18)
-            minute = random.choice([0, 30])
+            hora = random.randint(8, 18)
+            minuto = random.choice([0, 30])
             
-            appointment_datetime = current_date - timedelta(days=days_ago)
-            appointment_datetime = appointment_datetime.replace(
-                hour=hour, 
-                minute=minute, 
+            cita_datetime = fecha_actual - timedelta(days=days_ago)
+            cita_datetime = cita_datetime.replace(
+                hour=hora, 
+                minute=minuto, 
                 second=0, 
                 microsecond=0
             )
             
-            if registered_patients and random.random() < 0.3:
-                patient_id = random.choice(list(registered_patients.keys()))
-                patient_name = registered_patients[patient_id]
+            if pacientes_r and random.random() < 0.3:
+                paciente_id = random.choice(list(pacientes_r.keys()))
+                paciente_nombre = pacientes_r[paciente_id]
             else:
-                patient_id = f"patient_{len(registered_patients) + 1:04d}"
-                patient_name = LocalDataProvider.generate_full_name()
-                registered_patients[patient_id] = patient_name
+                paciente_id = f"patient_{len(pacientes_r) + 1:04d}"
+                paciente_nombre = LocalDataProvider.generar_nombre_completo()
+                pacientes_r[paciente_id] = paciente_nombre
             
-            service_name, duration, base_amount = random.choice(
-                LocalDataProvider.SERVICE_CATALOG
+            nombre_servicio, duracion, monto_base = random.choice(
+                LocalDataProvider.servicios
             )
             
-            price_variation = random.uniform(0.9, 1.1)
-            final_amount = round(base_amount * price_variation, 2)
+            variacion_p = random.uniform(0.9, 1.1)
+            monto_final = round(monto_base * variacion_p, 2)
             
-            probability = random.random()
-            if probability < 0.85:
-                appointment_status = "completada"
-                appointment_rating = round(random.uniform(3.5, 5.0), 1)
-            elif probability < 0.95:
-                appointment_status = "cancelada"
-                appointment_rating = None
+            p = random.random()
+            if p < 0.85:
+                estado_cita = "completada"
+                cita_calif = round(random.uniform(3.5, 5.0), 1)
+            elif p < 0.95:
+                estado_cita = "cancelada"
+                cita_calif = None
             else:
-                appointment_status = "pendiente"
-                appointment_rating = None
+                estado_cita = "pendiente"
+                cita_calif = None
             
-            appointment = AppointmentData(
-                appointment_id=f"appt_{appointment_number + 1:04d}",
-                patient_id=patient_id,
-                patient_name=patient_name,
-                dentist_id=dentist_id,
-                office_id=random.choice(LocalDataProvider.OFFICE_IDS),
-                appointment_date=appointment_datetime,
-                service_name=service_name,
-                duration_minutes=duration,
-                amount=final_amount,
-                payment_method=random.choice(LocalDataProvider.PAYMENT_METHODS),
-                status=appointment_status,
-                rating=appointment_rating
+            cita = citaData(
+                cita_id=f"cita_{numero_cita + 1:04d}",
+                paciente_id=paciente_id,
+                nombre_paciente=paciente_nombre,
+                dentista_id=dentista_id,
+                consultorio_id=random.choice(LocalDataProvider.consultorio_id),
+                cita_fecha=cita_datetime,
+                nombre_servicio=nombre_servicio,
+                duracion_min=duracion,
+                monto=monto_final,
+                metodo_pago=random.choice(LocalDataProvider.metodos_pago),
+                estado=estado_cita,
+                calificacion=cita_calif
             )
             
-            appointments.append(appointment)
+            citas.append(cita)
         
-        appointments.sort(key=lambda a: a.appointment_date)
-        return appointments
+        citas.sort(key=lambda a: a.cita_fecha)
+        return citas
     
     @staticmethod
-    def load_from_json(file_path: str) -> List[AppointmentData]:
+    def load_from_json(file_path: str) -> List[citaData]:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
         
-        appointments = []
+        citas = []
         for item in data:
-            item['appointment_date'] = datetime.fromisoformat(item['appointment_date'])
-            appointments.append(AppointmentData(**item))
+            item['cita_fecha'] = datetime.fromisoformat(item['cita_fecha'])
+            citas.append(citaData(**item))
         
-        return appointments
+        return citas
     
     @staticmethod
-    def save_to_json(appointments: List[AppointmentData], file_path: str):
+    def save_to_json(citas: List[citaData], file_path: str):
         data = []
-        for appointment in appointments:
-            appointment_dict = asdict(appointment)
-            appointment_dict['appointment_date'] = appointment.appointment_date.isoformat()
-            data.append(appointment_dict)
+        for cita in citas:
+            cita_dict = asdict(cita)
+            cita_dict['cita_fecha'] = cita.cita_fecha.isoformat()
+            data.append(cita_dict)
         
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, indent=2, ensure_ascii=False)

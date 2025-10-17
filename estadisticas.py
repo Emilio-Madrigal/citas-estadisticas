@@ -1,305 +1,179 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from collections import defaultdict
-from pruebaLocal import LocalDataProvider, AppointmentData
+from pruebaLocal import LocalDataProvider, citaData
 import json
 
-class StatisticsEngine:
-    def __init__(self, dentist_id: str):
-        self.dentist_id = dentist_id
-        self.appointments: List[AppointmentData] = []
-    
-    def load_appointments(self, appointments: List[AppointmentData]):
-        valid_appointments = [
-            apt for apt in appointments 
-            if apt.dentist_id == self.dentist_id
+class MotorEstadisticas:
+    def __init__(self, dentista_id: str):
+        self.dentista_id = dentista_id
+        self.citas: List[citaData] = []
+
+    def cargar_citas(self, citas: List[citaData]):
+        citas_validas = [
+            c for c in citas 
+            if c.dentista_id == self.dentista_id
         ]
-        self.appointments = valid_appointments
-    
-    def filter_by_date_range(
+        self.citas = citas_validas
+
+    def filtrar_por_rango_fechas(
         self, 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> List[AppointmentData]:
+        fecha_inicio: datetime, 
+        fecha_fin: datetime
+    ) -> List[citaData]:
         return [
-            apt for apt in self.appointments 
-            if start_date <= apt.appointment_date <= end_date
+            c for c in self.citas 
+            if fecha_inicio <= c.cita_fecha <= fecha_fin
         ]
-    
-    def calculate_monthly_summary(self, year: int, month: int) -> Dict:
-        start_date = datetime(year, month, 1)
-        
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            end_date = datetime(year, month + 1, 1) - timedelta(days=1)
-        
-        monthly_appointments = self.filter_by_date_range(start_date, end_date)
-        
-        completed_appointments = [
-            apt for apt in monthly_appointments 
-            if apt.status == 'completada'
-        ]
-        
-        canceled_appointments = [
-            apt for apt in monthly_appointments 
-            if apt.status == 'cancelada'
-        ]
-        
-        unique_patients = len(set(
-            apt.patient_id for apt in completed_appointments
-        ))
-        
-        total_revenue = sum(apt.amount for apt in completed_appointments)
-        
-        total_appointments = len(monthly_appointments)
-        cancellation_rate = (
-            len(canceled_appointments) / total_appointments * 100 
-            if total_appointments > 0 else 0
-        )
-        
-        ratings = [
-            apt.rating for apt in completed_appointments 
-            if apt.rating is not None
-        ]
-        average_rating = (
-            sum(ratings) / len(ratings) 
-            if ratings else 0
-        )
-        
+
+    def resumen_mensual(self, year: int, month: int) -> Dict:
+        fecha_inicio = datetime(year, month, 1)
+        fecha_fin = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year + 1, 1, 1) - timedelta(days=1)
+
+        citas_mes = self.filtrar_por_rango_fechas(fecha_inicio, fecha_fin)
+
+        citas_completadas = [c for c in citas_mes if c.estado == 'completada']
+        citas_canceladas = [c for c in citas_mes if c.estado == 'cancelada']
+
+        pacientes_unicos = len(set(c.paciente_id for c in citas_completadas))
+        ingresos_totales = sum(c.monto for c in citas_completadas)
+        total_citas = len(citas_mes)
+        tasa_cancelacion = (len(citas_canceladas) / total_citas * 100) if total_citas > 0 else 0
+
+        calificaciones = [c.calificacion for c in citas_completadas if c.calificacion is not None]
+        calificacion_promedio = sum(calificaciones)/len(calificaciones) if calificaciones else 0
+
         return {
-            'period': f'{year}-{month:02d}',
-            'total_appointments': total_appointments,
-            'completed_appointments': len(completed_appointments),
-            'canceled_appointments': len(canceled_appointments),
-            'unique_patients': unique_patients,
-            'total_revenue': round(total_revenue, 2),
-            'cancellation_rate': round(cancellation_rate, 2),
-            'average_rating': round(average_rating, 2)
+            'periodo': f'{year}-{month:02d}',
+            'total_citas': total_citas,
+            'citas_completadas': len(citas_completadas),
+            'citas_canceladas': len(citas_canceladas),
+            'pacientes_unicos': pacientes_unicos,
+            'ingresos_totales': round(ingresos_totales, 2),
+            'tasa_cancelacion': round(tasa_cancelacion, 2),
+            'calificacion_promedio': round(calificacion_promedio, 2)
         }
-    
-    def service_distribution(
-        self, 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict[str, int]:
-        period_appointments = self.filter_by_date_range(start_date, end_date)
-        distribution = defaultdict(int)
-        
-        for appointment in period_appointments:
-            if appointment.status == 'completada':
-                distribution[appointment.service_name] += 1
-        
-        return dict(distribution)
-    
-    def revenue_by_payment_method(
-        self, 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict[str, float]:
-        period_appointments = self.filter_by_date_range(start_date, end_date)
-        revenue = defaultdict(float)
-        
-        for appointment in period_appointments:
-            if appointment.status == 'completada':
-                revenue[appointment.payment_method] += appointment.amount
-        
+
+    def distribucion_servicios(self, fecha_inicio: datetime, fecha_fin: datetime) -> Dict[str, int]:
+        citas_periodo = self.filtrar_por_rango_fechas(fecha_inicio, fecha_fin)
+        distribucion = defaultdict(int)
+        for c in citas_periodo:
+            if c.estado == 'completada':
+                distribucion[c.nombre_servicio] += 1
+        return dict(distribucion)
+
+    def ingresos_por_pago(self, fecha_inicio: datetime, fecha_fin: datetime) -> Dict[str, float]:
+        citas_periodo = self.filtrar_por_rango_fechas(fecha_inicio, fecha_fin)
+        ingresos = defaultdict(float)
+        for c in citas_periodo:
+            if c.estado == 'completada':
+                ingresos[c.metodo_pago] += c.monto
+        return {metodo: round(monto, 2) for metodo, monto in ingresos.items()}
+
+    def carga_por_dia(self, fecha_inicio: datetime, fecha_fin: datetime) -> Dict[str, float]:
+        citas_periodo = self.filtrar_por_rango_fechas(fecha_inicio, fecha_fin)
+        dias_semana = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo']
+        citas_por_dia = defaultdict(int)
+        for c in citas_periodo:
+            if c.estado == 'completada':
+                dia = dias_semana[c.cita_fecha.weekday()]
+                citas_por_dia[dia] += 1
+        total_dias = (fecha_fin - fecha_inicio).days + 1
+        total_semanas = total_dias / 7
+        return {dia: round(citas_por_dia[dia]/total_semanas,2) if total_semanas>0 else 0 for dia in dias_semana}
+
+    def pacientes_nuevos_vs_recurrentes(self, fecha_inicio: datetime, fecha_fin: datetime) -> Dict:
+        citas_ordenadas = sorted(self.citas, key=lambda c: c.cita_fecha)
+        primera_cita = {}
+        for c in citas_ordenadas:
+            if c.paciente_id not in primera_cita:
+                primera_cita[c.paciente_id] = c.cita_fecha
+        citas_periodo = self.filtrar_por_rango_fechas(fecha_inicio, fecha_fin)
+        nuevos = 0
+        recurrentes = 0
+        pacientes_analizados = set()
+        for c in citas_periodo:
+            if c.estado != 'completada':
+                continue
+            if c.paciente_id in pacientes_analizados:
+                continue
+            pacientes_analizados.add(c.paciente_id)
+            if primera_cita[c.paciente_id] >= fecha_inicio:
+                nuevos += 1
+            else:
+                recurrentes += 1
+        return {'nuevos': nuevos, 'recurrentes': recurrentes, 'total': nuevos+recurrentes}
+
+    def servicios_mas_solicitados(self, fecha_inicio: datetime, fecha_fin: datetime, limite: int =5) -> List[Dict]:
+        distribucion = self.distribucion_servicios(fecha_inicio, fecha_fin)
+        ordenados = sorted(distribucion.items(), key=lambda x:x[1], reverse=True)
+        top = ordenados[:limite]
+        return [{'servicio': s, 'cantidad': c} for s,c in top]
+
+    def comparar_periodos(self, inicio1: datetime, fin1: datetime, inicio2: datetime, fin2: datetime) -> Dict:
+        citas1 = [c for c in self.filtrar_por_rango_fechas(inicio1, fin1) if c.estado=='completada']
+        citas2 = [c for c in self.filtrar_por_rango_fechas(inicio2, fin2) if c.estado=='completada']
+        ingresos1 = sum(c.monto for c in citas1)
+        ingresos2 = sum(c.monto for c in citas2)
+
+        def crecimiento(viejo, nuevo):
+            if viejo==0: return 100.0 if nuevo>0 else 0.0
+            return ((nuevo-viejo)/viejo)*100
+
         return {
-            method: round(amount, 2) 
-            for method, amount in revenue.items()
-        }
-    
-    def workload_by_weekday(
-        self, 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict[str, float]:
-        period_appointments = self.filter_by_date_range(start_date, end_date)
-        
-        weekday_names = [
-            'Lunes', 'Martes', 'Miercoles', 
-            'Jueves', 'Viernes', 'Sabado', 'Domingo'
-        ]
-        
-        appointments_per_day = defaultdict(int)
-        
-        for appointment in period_appointments:
-            if appointment.status == 'completada':
-                day_name = weekday_names[appointment.appointment_date.weekday()]
-                appointments_per_day[day_name] += 1
-        
-        total_days = (end_date - start_date).days + 1
-        total_weeks = total_days / 7
-        
-        average_workload = {
-            day: round(appointments_per_day[day] / total_weeks, 2) 
-            if total_weeks > 0 else 0
-            for day in weekday_names
-        }
-        
-        return average_workload
-    
-    def new_vs_returning_patients(
-        self, 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict:
-        all_appointments_sorted = sorted(
-            self.appointments, 
-            key=lambda a: a.appointment_date
-        )
-        
-        first_appointment_date = {}
-        
-        for appointment in all_appointments_sorted:
-            if appointment.patient_id not in first_appointment_date:
-                first_appointment_date[appointment.patient_id] = appointment.appointment_date
-        
-        period_appointments = self.filter_by_date_range(start_date, end_date)
-        new_patients = 0
-        returning_patients = 0
-        
-        analyzed_patients = set()
-        
-        for appointment in period_appointments:
-            if appointment.status == 'completada':
-                patient_id = appointment.patient_id
-                
-                if patient_id in analyzed_patients:
-                    continue
-                
-                analyzed_patients.add(patient_id)
-                
-                if first_appointment_date[patient_id] >= start_date:
-                    new_patients += 1
-                else:
-                    returning_patients += 1
-        
-        return {
-            'new_patients': new_patients,
-            'returning_patients': returning_patients,
-            'total_patients': new_patients + returning_patients
-        }
-    
-    def top_requested_services(
-        self, 
-        start_date: datetime, 
-        end_date: datetime, 
-        limit: int = 5
-    ) -> List[Dict]:
-        distribution = self.service_distribution(start_date, end_date)
-        
-        sorted_services = sorted(
-            distribution.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        
-        top_services = sorted_services[:limit]
-        
-        return [
-            {'service': service, 'count': count}
-            for service, count in top_services
-        ]
-    
-    def compare_periods(
-        self,
-        period1_start: datetime,
-        period1_end: datetime,
-        period2_start: datetime,
-        period2_end: datetime
-    ) -> Dict:
-        period1_appointments = self.filter_by_date_range(period1_start, period1_end)
-        period2_appointments = self.filter_by_date_range(period2_start, period2_end)
-        
-        period1_completed = [
-            apt for apt in period1_appointments 
-            if apt.status == 'completada'
-        ]
-        period2_completed = [
-            apt for apt in period2_appointments 
-            if apt.status == 'completada'
-        ]
-        
-        period1_revenue = sum(apt.amount for apt in period1_completed)
-        period2_revenue = sum(apt.amount for apt in period2_completed)
-        
-        def calculate_growth(old_value, new_value):
-            if old_value == 0:
-                return 100.0 if new_value > 0 else 0.0
-            return ((new_value - old_value) / old_value) * 100
-        
-        return {
-            'period_1': {
-                'appointments': len(period1_completed),
-                'revenue': round(period1_revenue, 2)
-            },
-            'period_2': {
-                'appointments': len(period2_completed),
-                'revenue': round(period2_revenue, 2)
-            },
-            'growth': {
-                'appointments_percentage': round(
-                    calculate_growth(
-                        len(period1_completed), 
-                        len(period2_completed)
-                    ), 2
-                ),
-                'revenue_percentage': round(
-                    calculate_growth(period1_revenue, period2_revenue), 2
-                )
+            'periodo_1': {'citas': len(citas1), 'ingresos': round(ingresos1,2)},
+            'periodo_2': {'citas': len(citas2), 'ingresos': round(ingresos2,2)},
+            'crecimiento': {
+                'citas_porcentaje': round(crecimiento(len(citas1), len(citas2)),2),
+                'ingresos_porcentaje': round(crecimiento(ingresos1, ingresos2),2)
             }
         }
-    
-    def generate_complete_report(self, year: int, month: int) -> str:
-        start_date = datetime(year, month, 1)
-        
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            end_date = datetime(year, month + 1, 1) - timedelta(days=1)
-        
-        report = {
-            'dentist_id': self.dentist_id,
-            'report_period': f'{year}-{month:02d}',
-            'generated_at': datetime.now().isoformat(),
-            'monthly_summary': self.calculate_monthly_summary(year, month),
-            'service_distribution': self.service_distribution(start_date, end_date),
-            'revenue_by_payment': self.revenue_by_payment_method(start_date, end_date),
-            'workload_analysis': self.workload_by_weekday(start_date, end_date),
-            'patient_analysis': self.new_vs_returning_patients(start_date, end_date),
-            'top_services': self.top_requested_services(start_date, end_date)
+
+    def generar_reporte_completo(self, year:int, month:int) -> str:
+        fecha_inicio = datetime(year, month, 1)
+        fecha_fin = datetime(year, month+1, 1) - timedelta(days=1) if month<12 else datetime(year+1,1,1) - timedelta(days=1)
+
+        reporte = {
+            'dentista_id': self.dentista_id,
+            'periodo_reporte': f'{year}-{month:02d}',
+            'generado_en': datetime.now().isoformat(),
+            'resumen_mensual': self.resumen_mensual(year, month),
+            'distribucion_servicios': self.distribucion_servicios(fecha_inicio, fecha_fin),
+            'ingresos_por_pago': self.ingresos_por_pago(fecha_inicio, fecha_fin),
+            'carga_por_dia': self.carga_por_dia(fecha_inicio, fecha_fin),
+            'pacientes_analisis': self.pacientes_nuevos_vs_recurrentes(fecha_inicio, fecha_fin),
+            'top_servicios': self.servicios_mas_solicitados(fecha_inicio, fecha_fin)
         }
-        
-        return json.dumps(report, indent=2, ensure_ascii=False)
+
+        return json.dumps(reporte, indent=2, ensure_ascii=False)
 
 
 def main():
     
     dentist_id = "dentist_001"
     
-    print("Inicializando sistema de estadisticas...")
-    engine = StatisticsEngine(dentist_id)
+    print("inicializando sistema de estadisticas...")
+    engine = MotorEstadisticas(dentist_id)
     
-    print("Generando datos de prueba...")
-    appointments = LocalDataProvider.generate_appointments(
-        dentist_id=dentist_id,
-        total_appointments=150,
+    print("generando datos de prueba...")
+    appointments = LocalDataProvider.generar_citas(
+        dentista_id=dentist_id,
+        total_citas=150,
         months_back=6
     )
     
-    print(f"Cargando {len(appointments)} citas...")
-    engine.load_appointments(appointments)
+    print(f"cargando {len(appointments)} citas...")
+    engine.cargar_citas(appointments)
     
     current_date = datetime.now()
     
-    print("\nGenerando reporte mensual...")
-    report = engine.generate_complete_report(current_date.year, current_date.month)
+    print("\ngenerando reporte mensual...")
+    report = engine.generar_reporte_completo(current_date.year, current_date.month)
     print(report)
     
-    print("\nGuardando datos locales...")
+    print("\nguardando datos locales...")
     LocalDataProvider.save_to_json(appointments, "local_appointments.json")
-    print("Datos guardados en: local_appointments.json")
+    print("datos guardados en: local_appointments.json")
 
 
 if __name__ == "__main__":
